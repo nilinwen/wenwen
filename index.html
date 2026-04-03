@@ -2,252 +2,180 @@
 <html lang="zh">
 <head>
     <meta charset="UTF-8">
-    <title>Woven Mind | 激光感应滑动实验室</title>
+    <title>Woven Mind | 空间叙事实验室</title>
     <style>
-        :root {
-            --white: #ffffff;
-            --black: #000000;
-            --gray: #444444;
-            --edge: rgba(255, 255, 255, 0.2); 
-            --glass: rgba(255, 255, 255, 0.03);
-            --accent: #ff3e00;
-        }
-
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@200;400;700;900&display=swap');
+        :root { --white: #ffffff; --black: #000000; --box-glass: rgba(255, 255, 255, 0.05); --box-edge: rgba(255, 255, 255, 0.3); }
         * { margin: 0; padding: 0; box-sizing: border-box; cursor: none; } 
+        body { background: var(--black); height: 100vh; overflow: hidden; font-family: "Inter", sans-serif; }
 
-        body {
-            background: var(--black);
-            height: 100vh;
-            overflow: hidden;
-            font-family: "Courier New", Courier, monospace;
-        }
+        /* 顶部状态栏 */
+        #top-status-bar { position: fixed; top: 30px; left: 50px; right: 50px; display: flex; justify-content: space-between; z-index: 1000; pointer-events: none; }
+        .status-tag { font-size: 9px; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 2px; display: flex; gap: 20px; }
+        .status-tag span { border-left: 1px solid rgba(255,255,255,0.2); padding-left: 10px; }
+        .blink { animation: blink 2s infinite; }
+        @keyframes blink { 50% { opacity: 0.1; } }
 
-        /* -----------------------------------------
-           全局准心系统 (最高层级)
-        ------------------------------------------ */
-        #aim-system {
-            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-            pointer-events: none; z-index: 10000000; 
-        }
-        .reticle-line-v {
-            position: absolute; width: 1px; height: 100vh;
-            background: rgba(255, 255, 255, 0.1); left: 0; top: 0;
-        }
-        .reticle-line-h {
-            position: absolute; height: 1px; width: 100vw;
-            background: rgba(255, 255, 255, 0.1); left: 0; top: 0;
-        }
-        #aim-dot {
-            position: absolute; width: 8px; height: 8px;
-            background: var(--white); border-radius: 50%;
-            box-shadow: 0 0 15px var(--white);
-            transform: translate(-50%, -50%);
-        }
+        /* 交互准心 */
+        #aim-system { position: fixed; inset: 0; pointer-events: none; z-index: 10000000; }
+        .reticle-line-v, .reticle-line-h { position: absolute; background: rgba(255, 255, 255, 0.1); }
+        .reticle-line-v { width: 1px; height: 100vh; left: 0; top: 0; }
+        .reticle-line-h { height: 1px; width: 100vw; left: 0; top: 0; }
+        #aim-dot { position: absolute; width: 6px; height: 6px; background: var(--white); border-radius: 50%; transform: translate(-50%, -50%); mix-blend-mode: difference; }
+        #cursor-info { position: absolute; color: #fff; font-size: 9px; letter-spacing: 1px; pointer-events: none; text-transform: uppercase; line-height: 1.4; opacity: 0; transition: opacity 0.3s; padding-left: 15px; z-index: 10000001; }
 
-        /* -----------------------------------------
-           3D 舞台区域 (亚克力盒子)
-        ------------------------------------------ */
-        .viewport {
-            perspective: 2500px; width: 100vw; height: 100vh;
-            display: flex; align-items: center; justify-content: center;
-        }
-        .acrylic-box {
-            width: 500px; height: 500px;
-            transform-style: preserve-3d;
-            transform: rotateX(-20deg) rotateY(35deg);
-            position: relative; pointer-events: none;
-        }
-        .face {
-            position: absolute; width: 500px; height: 500px;
-            background: var(--glass); border: 1px solid var(--edge);
-        }
-        .front { transform: translateZ(250px); }
-        .back  { transform: translateZ(-250px); opacity: 0.2; }
-        .right { transform: rotateY(90deg) translateZ(250px); }
-        .left  { transform: rotateY(-90deg) translateZ(250px); }
-        .top   { transform: rotateX(90deg) translateZ(250px); }
-        .bottom{ transform: rotateX(-90deg) translateZ(250px); }
+        /* 3D 舞台 */
+        .viewport { perspective: 2500px; width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; z-index: 1; }
+        .acrylic-box { width: 450px; height: 450px; transform-style: preserve-3d; transform: rotateX(-15deg) rotateY(30deg); position: relative; pointer-events: none; }
+        .face { position: absolute; width: 450px; height: 450px; background: var(--box-glass); border: 0.5px solid var(--box-edge); pointer-events: none; }
+        .front { transform: translateZ(225px); } .back { transform: translateZ(-225px); }
+        .right { transform: rotateY(90deg) translateZ(225px); } .left { transform: rotateY(-90deg) translateZ(225px); }
+        .top { transform: rotateX(90deg) translateZ(225px); } .bottom { transform: rotateX(-90deg) translateZ(225px); }
 
         .glass-shard {
-            position: absolute; width: 200px; height: 120px;
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.2);
-            padding: 20px; display: flex; flex-direction: column; justify-content: center;
-            transition: all 0.5s cubic-bezier(0.19, 1, 0.22, 1);
-            filter: blur(4px); opacity: 0.5;
+            position: absolute; width: 120px; height: 70px;
+            background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(8px);
+            border: 0.5px solid rgba(255,255,255,0.3); padding: 12px;
             transform-style: preserve-3d; pointer-events: auto;
+            display: flex; flex-direction: column; justify-content: center;
+            transition: background 0.3s, border 0.3s;
         }
-        .glass-shard:hover {
-            filter: blur(0px); border: 1.5px solid var(--white);
-            opacity: 1; z-index: 1000 !important;
-            box-shadow: 0 0 40px rgba(255,255,255,0.2);
-        }
+        .glass-shard:hover { background: rgba(255, 255, 255, 0.25); border: 1px solid #fff; z-index: 1000 !important; }
 
-        /* -----------------------------------------
-           项目详情页 (带导航功能)
-        ------------------------------------------ */
-        .modal {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.98);
-            display: none; z-index: 5000000;
-            padding: 5vh 0; color: #fff;
+        /* 详情弹窗 (纯净液态玻璃) */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.7); display: none; z-index: 5000000; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.5s ease; }
+        .modal-overlay.active { display: flex; opacity: 1; }
+        .frosted-frame {
+            background: rgba(255, 255, 255, 0.12); backdrop-filter: blur(50px) saturate(200%); -webkit-backdrop-filter: blur(50px) saturate(200%);
+            border: 1px solid rgba(255, 255, 255, 0.3); width: 85vw; aspect-ratio: 16 / 9; max-width: 1400px; padding: 50px; 
+            display: flex; flex-direction: column; justify-content: space-between; position: relative; color: #fff;
         }
-        .modal.active { display: block; }
-
-        .modal-header {
-            margin-bottom: 30px; padding-left: 5vw;
-            border-left: 2px solid #fff; margin-left: 5vw;
-        }
-        .modal-header h1 { font-size: 2.5rem; letter-spacing: 10px; font-weight: 200; }
-
-        /* 滑动控制区域 */
-        .slider-wrapper {
-            position: relative;
-            width: 100vw;
-            height: 60vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        /* 导航按钮：激光感应区 */
-        .nav-btn {
-            position: absolute;
-            top: 0; width: 15vw; height: 100%;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 3rem; color: #222;
-            transition: all 0.3s;
-            pointer-events: auto; /* 必须开启，以便点击 */
-            z-index: 6000000;
-            user-select: none;
-        }
-        .btn-left { left: 0; }
-        .btn-right { right: 0; }
-        .nav-btn:hover { color: #fff; background: rgba(255,255,255,0.02); }
-
-        /* 图片视口 */
-        .slider-viewport {
-            width: 70vw;
-            height: 100%;
-            overflow: hidden;
-            border: 1px solid #222;
-        }
-        .slider-inner {
-            display: flex;
-            height: 100%;
-            transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1);
-        }
-        .slide-item {
-            flex: 0 0 100%;
-            height: 100%;
-            background: #000;
-        }
-        .slide-item img {
-            width: 100%; height: 100%; object-fit: cover;
-            filter: grayscale(100%); transition: 0.8s;
-        }
-        .slide-item:hover img { filter: grayscale(0%); }
-
-        .close-btn {
-            position: fixed; top: 40px; right: 40px;
-            font-size: 10px; color: #444; letter-spacing: 5px;
-            pointer-events: auto; z-index: 7000000;
-        }
-        .close-btn:hover { color: #fff; }
-
+        .header-nav { display: flex; justify-content: space-between; align-items: center; font-size: 10px; text-transform: uppercase; letter-spacing: 2.5px; border-bottom: 1px solid rgba(255,255,255,0.15); padding-bottom: 20px; margin-bottom: 20px; }
+        .frame-content { display: flex; justify-content: space-between; align-items: flex-end; flex-grow: 1; gap: 60px; overflow: hidden; margin-bottom: 20px;}
+        .text-side { min-width: 350px; padding-bottom: 20px; }
+        .text-side h1 { font-size: 4.5rem; font-weight: 900; letter-spacing: -3px; text-transform: uppercase; line-height: 0.85; margin-bottom: 25px; }
+        .text-side p { font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: rgba(255,255,255,0.6); line-height: 2; }
+        .image-side { flex-grow: 1; display: flex; justify-content: flex-end; height: 100%; }
+        .hero-focus-box { width: 100%; max-width: 800px; aspect-ratio: 16 / 9; background: rgba(0,0,0,0.2); overflow: hidden; border: 1px solid rgba(255,255,255,0.1); }
+        .hero-focus-box img { width: 100%; height: 100%; object-fit: cover; }
+        .thumbs-row { display: flex; gap: 15px; padding-top: 25px; border-top: 1px solid rgba(255,255,255,0.15); }
+        .thumb-square { flex: 1; aspect-ratio: 1 / 1; background: rgba(0,0,0,0.2); cursor: pointer; filter: grayscale(100%); transition: 0.3s; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); }
+        .thumb-square:hover, .thumb-square.active { filter: grayscale(0%); border-color: #fff; transform: translateY(-5px); }
+        .thumb-square img { width: 100%; height: 100%; object-fit: cover; }
+        .btn-exit { cursor: pointer; color: rgba(255,255,255,0.5); transition: 0.3s; }
+        .btn-exit:hover { color: #fff; }
     </style>
 </head>
 <body>
 
+<div id="top-status-bar">
+    <div class="status-tag"><span class="blink">SYSTEM_LOCKED</span><span>FLOW_VELOCITY: 0.05</span></div>
+    <div class="status-tag"><span id="coord-display">X: 0.00 Y: 0.00</span><span>COLLISION: ENABLED</span></div>
+</div>
+
 <div id="aim-system">
-    <div class="reticle-line-v" id="v-line"></div>
-    <div class="reticle-line-h" id="h-line"></div>
-    <div id="aim-dot"></div>
+    <div class="reticle-line-v"></div><div class="reticle-line-h"></div>
+    <div id="aim-dot"></div><div id="cursor-info"></div>
 </div>
 
 <div class="viewport">
     <div class="acrylic-box" id="stage">
-        <div class="face front"></div>
-        <div class="face back"></div>
-        <div class="face left"></div>
-        <div class="face right"></div>
-        <div class="face top"></div>
-        <div class="face bottom"></div>
+        <div class="face front"></div><div class="face back"></div>
+        <div class="face left"></div><div class="face right"></div>
+        <div class="face top"></div><div class="face bottom"></div>
     </div>
 </div>
 
-<div class="modal" id="modal">
-    <div class="close-btn" onclick="closeModal()">EXIT_ARCHIVE [X]</div>
-    <div id="modalContent"></div>
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal()">
+    <div class="frosted-frame" onclick="event.stopPropagation()">
+        <div class="header-nav"><div>DATA_STREAM / ARCHIVE_RETRIEVAL</div><div class="btn-exit" onclick="closeModal()">EXIT ARCHIVE (X) —</div></div>
+        <div class="frame-content">
+            <div class="text-side"><h1 id="m-title">PROJECT</h1><p id="m-meta">PRATT INSTITUTE<br>INTERIOR DESIGN LAB<br>YEAR: 2026</p></div>
+            <div class="image-side"><div class="hero-focus-box"><img src="" id="m-hero"></div></div>
+        </div>
+        <div class="thumbs-row" id="m-thumb-grid"></div>
+    </div>
 </div>
 
 <script>
-    const data = [
-        { 
-            title: "艺能场", 
-            en: "Performance Hub", 
-            images: [
-                "https://images.unsplash.com/photo-1547153760-18fc86324498?q=80&w=1200",
-                "https://images.unsplash.com/photo-1596464716127-f2a82984de30?q=80&w=1200",
-                "https://images.unsplash.com/photo-1508700929628-666bc8bd845d?q=80&w=1200",
-                "https://images.unsplash.com/photo-1504609773096-104ff2c73ba4?q=80&w=1200",
-                "https://images.unsplash.com/photo-1512496011216-36c3ae2b4c19?q=80&w=1200"
-            ]
-        },
-        { 
-            title: "Mizuno 零售", 
-            en: "Retail Lab", 
-            images: [
-                "https://images.unsplash.com/photo-1441986300917-64674bd600d8?q=80&w=1200",
-                "https://images.unsplash.com/photo-1534452203293-4cc8d71ba712?q=80&w=1200",
-                "https://images.unsplash.com/photo-1555529771-835f59fc5efe?q=80&w=1200",
-                "https://images.unsplash.com/photo-1567401156248-4662079f7407?q=80&w=1200",
-                "https://images.unsplash.com/photo-1537832816519-689ad163238b?q=80&w=1200"
-            ]
-        }
+    // 建筑感极简抽象图库 (Unsplash 插画/几何素材)
+    const architectureIllustrations = [
+        "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=1200", // 几何构筑
+        "https://images.unsplash.com/photo-1550684848-fac1c5b4e853?q=80&w=1200", // 黑白极简
+        "https://images.unsplash.com/photo-1490079027102-cd08f2308c73?q=80&w=1200", // 线条
+        "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?q=80&w=1200", // 建筑阴影
+        "https://images.unsplash.com/photo-1494438639946-1ebd1d20bf85?q=80&w=1200", // 现代插画感
+        "https://images.unsplash.com/photo-1505330622279-bf7d7fc918f4?q=80&w=1200", // 结构
+        "https://images.unsplash.com/photo-1542261777448-23d2a21d5bb3?q=80&w=1200", // 几何体
+        "https://images.unsplash.com/photo-1554188248-986adbb73be4?q=80&w=1200"  // 极致灰调
     ];
 
-    while(data.length < 10) { data.push({...data[0], title: `数据块 ${data.length + 1}`}); }
+    const projectData = [];
+    for(let i=1; i<=10; i++) {
+        projectData.push({
+            title: `PROJECT_${String(i).padStart(2, '0')}`,
+            loc: "NI LINWEN / SPATIAL ARCHIVE",
+            year: "2026",
+            images: i % 2 === 0 ? architectureIllustrations : [...architectureIllustrations].reverse()
+        });
+    }
 
-    const stage = document.getElementById('stage');
     const shards = [];
+    const stage = document.getElementById('stage');
     const aimDot = document.getElementById('aim-dot');
-    const vLine = document.getElementById('v-line');
-    const hLine = document.getElementById('h-line');
+    const cursorInfo = document.getElementById('cursor-info');
 
-    let currentSlideIndex = 0;
+    // 极慢物理引擎参数
+    const MIN_DIST = 140; 
+    const REPULSION = 0.002; // 极小的排斥力
+    const BOUNDARY = 150; 
+    const MAX_SPEED = 0.2; // 极低的最大速度
 
-    data.forEach((item, i) => {
+    projectData.forEach((item, i) => {
         const el = document.createElement('div');
         el.className = 'glass-shard';
-        el.innerHTML = `<div style="font-size:0.6rem; color:#444;">REF_${i+1}</div><div style="font-size:1rem; letter-spacing:2px; color:#fff;">${item.title}</div>`;
+        el.innerHTML = `<div style="font-size:0.5rem; color:rgba(255,255,255,0.4);">DATA_ID: ${String(i+1).padStart(3, '0')}</div><div style="font-size:0.8rem; color:#fff; font-weight:200;">${item.title}</div>`;
         
-        const obj = {
+        shards.push({
             el: el,
-            x: Math.random() * 300 - 150, y: Math.random() * 300 - 150, z: Math.random() * 300 - 150,
-            vx: (Math.random() - 0.5) * 0.4, vy: (Math.random() - 0.5) * 0.4, vz: (Math.random() - 0.5) * 0.4,
+            x: (Math.random() - 0.5) * 300, y: (Math.random() - 0.5) * 300, z: (Math.random() - 0.5) * 300,
+            vx: (Math.random() - 0.5) * 0.1, vy: (Math.random() - 0.5) * 0.1, vz: (Math.random() - 0.5) * 0.1, // 起始速度极低
             rx: Math.random() * 360, ry: Math.random() * 360,
-            vrx: (Math.random() - 0.5) * 0.3, vry: (Math.random() - 0.5) * 0.3,
+            vrx: (Math.random() - 0.5) * 0.05, vry: (Math.random() - 0.5) * 0.05,
             isHover: false
-        };
-
-        el.onmouseenter = () => obj.isHover = true;
-        el.onmouseleave = () => obj.isHover = false;
-        el.onclick = (e) => { e.stopPropagation(); openModal(item); };
+        });
         stage.appendChild(el);
-        shards.push(obj);
     });
 
     function animate() {
+        for (let i = 0; i < shards.length; i++) {
+            for (let j = i + 1; j < shards.length; j++) {
+                const s1 = shards[i]; const s2 = shards[j];
+                const dx = s1.x - s2.x; const dy = s1.y - s2.y; const dz = s1.z - s2.z;
+                const distance = Math.sqrt(dx*dx + dy*dy + dz*dz);
+                if (distance < MIN_DIST) {
+                    const force = (MIN_DIST - distance) * REPULSION;
+                    s1.vx += (dx / distance) * force; s1.vy += (dy / distance) * force; s1.vz += (dz / distance) * force;
+                    s2.vx -= (dx / distance) * force; s2.vy -= (dy / distance) * force; s2.vz -= (dz / distance) * force;
+                }
+            }
+        }
+
         shards.forEach(s => {
             if (!s.isHover) {
+                // 限制速度
+                s.vx = Math.max(Math.min(s.vx, MAX_SPEED), -MAX_SPEED);
+                s.vy = Math.max(Math.min(s.vy, MAX_SPEED), -MAX_SPEED);
+                s.vz = Math.max(Math.min(s.vz, MAX_SPEED), -MAX_SPEED);
+
                 s.x += s.vx; s.y += s.vy; s.z += s.vz;
                 s.rx += s.vrx; s.ry += s.vry;
-                if (s.x < -180 || s.x > 180) s.vx *= -1;
-                if (s.y < -180 || s.y > 180) s.vy *= -1;
-                if (s.z < -180 || s.z > 180) s.vz *= -1;
+
+                if (Math.abs(s.x) > BOUNDARY) s.vx *= -1;
+                if (Math.abs(s.y) > BOUNDARY) s.vy *= -1;
+                if (Math.abs(s.z) > BOUNDARY) s.vz *= -1;
             }
-            s.el.style.transform = `translate3d(${s.x+150}px, ${s.y+190}px, ${s.z}px) rotateX(${s.rx}deg) rotateY(${s.ry}deg)`;
+            s.el.style.transform = `translate3d(${s.x + 165}px, ${s.y + 190}px, ${s.z}px) rotateX(${s.rx}deg) rotateY(${s.ry}deg)`;
         });
         requestAnimationFrame(animate);
     }
@@ -256,44 +184,40 @@
     document.addEventListener('mousemove', e => {
         const x = e.clientX; const y = e.clientY;
         aimDot.style.left = x + 'px'; aimDot.style.top = y + 'px';
-        vLine.style.left = x + 'px'; hLine.style.top = y + 'px';
-        const ry = (x / window.innerWidth - 0.5) * 35;
-        const rx = (y / window.innerHeight - 0.5) * -25;
-        stage.style.transform = `rotateX(${-20 + rx}deg) rotateY(${35 + ry}deg)`;
+        cursorInfo.style.left = x + 'px'; cursorInfo.style.top = y + 'px';
+        document.querySelector('.reticle-line-v').style.left = x + 'px';
+        document.querySelector('.reticle-line-h').style.top = y + 'px';
+        document.getElementById('coord-display').textContent = `X: ${(x/1000).toFixed(3)} Y: ${(y/1000).toFixed(3)}`;
+        stage.style.transform = `rotateX(${-15 + (y/window.innerHeight-0.5)*-15}deg) rotateY(${30 + (x/window.innerWidth-0.5)*20}deg)`;
     });
 
-    function openModal(item) {
-        currentSlideIndex = 0;
-        const slides = item.images.map(img => `<div class="slide-item"><img src="${img}" alt="project"></div>`).join('');
-        
-        document.getElementById('modalContent').innerHTML = `
-            <div class="modal-header">
-                <h1>${item.title}</h1>
-            </div>
-            <div class="slider-wrapper">
-                <div class="nav-btn btn-left" onclick="moveSlide(-1)">〈</div>
-                <div class="slider-viewport">
-                    <div class="slider-inner" id="slider-inner">
-                        ${slides}
-                    </div>
-                </div>
-                <div class="nav-btn btn-right" onclick="moveSlide(1)">〉</div>
-            </div>
-            <div style="text-align:center; margin-top:20px; font-size:10px; color:#333; letter-spacing:5px;">
-                CLICK ARROWS TO NAVIGATE DATA // 16:9 VISUALS
-            </div>
-        `;
-        document.getElementById('modal').classList.add('active');
-    }
+    shards.forEach(s => {
+        s.el.onmouseenter = () => { s.isHover = true; cursorInfo.style.opacity = '1'; cursorInfo.innerHTML = `LOCKED: ${s.el.lastChild.innerText}<br>VELOCITY: NULL`; };
+        s.el.onmouseleave = () => { s.isHover = false; cursorInfo.style.opacity = '0'; };
+        s.el.onclick = () => openModal(projectData[shards.indexOf(s)]);
+    });
 
-    function moveSlide(direction) {
-        const inner = document.getElementById('slider-inner');
-        const total = 5; // 5张图
-        currentSlideIndex = (currentSlideIndex + direction + total) % total;
-        inner.style.transform = `translateX(-${currentSlideIndex * 100}%)`;
+    function openModal(project) {
+        document.getElementById('m-title').textContent = project.title;
+        document.getElementById('m-meta').innerHTML = `${project.loc}<br>INTERIOR DESIGN LAB<br>YEAR: ${project.year}`;
+        const hero = document.getElementById('m-hero'); hero.src = project.images[0];
+        const grid = document.getElementById('m-thumb-grid'); grid.innerHTML = '';
+        project.images.forEach((img, idx) => {
+            const t = document.createElement('div');
+            t.className = `thumb-square ${idx === 0 ? 'active' : ''}`;
+            t.innerHTML = `<img src="${img}">`;
+            t.onclick = () => {
+                hero.style.opacity = '0.5';
+                setTimeout(() => { hero.src = img; hero.style.opacity = '1'; }, 100);
+                document.querySelectorAll('.thumb-square').forEach(b => b.classList.remove('active'));
+                t.classList.add('active');
+            };
+            grid.appendChild(t);
+        });
+        document.getElementById('modalOverlay').style.display = 'flex';
+        setTimeout(() => document.getElementById('modalOverlay').classList.add('active'), 10);
     }
-
-    function closeModal() { document.getElementById('modal').classList.remove('active'); }
+    function closeModal() { document.getElementById('modalOverlay').classList.remove('active'); setTimeout(() => document.getElementById('modalOverlay').style.display = 'none', 400); }
 </script>
 </body>
 </html>
