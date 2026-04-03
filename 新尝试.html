@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>Woven Mind | 激光感应滑动实验室</title>
+    <style>
+        :root {
+            --white: #ffffff;
+            --black: #000000;
+            --gray: #444444;
+            --edge: rgba(255, 255, 255, 0.2); 
+            --glass: rgba(255, 255, 255, 0.03);
+            --accent: #ff3e00;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; cursor: none; } 
+
+        body {
+            background: var(--black);
+            height: 100vh;
+            overflow: hidden;
+            font-family: "Courier New", Courier, monospace;
+        }
+
+        /* -----------------------------------------
+           全局准心系统 (最高层级)
+        ------------------------------------------ */
+        #aim-system {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            pointer-events: none; z-index: 10000000; 
+        }
+        .reticle-line-v {
+            position: absolute; width: 1px; height: 100vh;
+            background: rgba(255, 255, 255, 0.1); left: 0; top: 0;
+        }
+        .reticle-line-h {
+            position: absolute; height: 1px; width: 100vw;
+            background: rgba(255, 255, 255, 0.1); left: 0; top: 0;
+        }
+        #aim-dot {
+            position: absolute; width: 8px; height: 8px;
+            background: var(--white); border-radius: 50%;
+            box-shadow: 0 0 15px var(--white);
+            transform: translate(-50%, -50%);
+        }
+
+        /* -----------------------------------------
+           3D 舞台区域 (亚克力盒子)
+        ------------------------------------------ */
+        .viewport {
+            perspective: 2500px; width: 100vw; height: 100vh;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .acrylic-box {
+            width: 500px; height: 500px;
+            transform-style: preserve-3d;
+            transform: rotateX(-20deg) rotateY(35deg);
+            position: relative; pointer-events: none;
+        }
+        .face {
+            position: absolute; width: 500px; height: 500px;
+            background: var(--glass); border: 1px solid var(--edge);
+        }
+        .front { transform: translateZ(250px); }
+        .back  { transform: translateZ(-250px); opacity: 0.2; }
+        .right { transform: rotateY(90deg) translateZ(250px); }
+        .left  { transform: rotateY(-90deg) translateZ(250px); }
+        .top   { transform: rotateX(90deg) translateZ(250px); }
+        .bottom{ transform: rotateX(-90deg) translateZ(250px); }
+
+        .glass-shard {
+            position: absolute; width: 200px; height: 120px;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.2);
+            padding: 20px; display: flex; flex-direction: column; justify-content: center;
+            transition: all 0.5s cubic-bezier(0.19, 1, 0.22, 1);
+            filter: blur(4px); opacity: 0.5;
+            transform-style: preserve-3d; pointer-events: auto;
+        }
+        .glass-shard:hover {
+            filter: blur(0px); border: 1.5px solid var(--white);
+            opacity: 1; z-index: 1000 !important;
+            box-shadow: 0 0 40px rgba(255,255,255,0.2);
+        }
+
+        /* -----------------------------------------
+           项目详情页 (带导航功能)
+        ------------------------------------------ */
+        .modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.98);
+            display: none; z-index: 5000000;
+            padding: 5vh 0; color: #fff;
+        }
+        .modal.active { display: block; }
+
+        .modal-header {
+            margin-bottom: 30px; padding-left: 5vw;
+            border-left: 2px solid #fff; margin-left: 5vw;
+        }
+        .modal-header h1 { font-size: 2.5rem; letter-spacing: 10px; font-weight: 200; }
+
+        /* 滑动控制区域 */
+        .slider-wrapper {
+            position: relative;
+            width: 100vw;
+            height: 60vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* 导航按钮：激光感应区 */
+        .nav-btn {
+            position: absolute;
+            top: 0; width: 15vw; height: 100%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 3rem; color: #222;
+            transition: all 0.3s;
+            pointer-events: auto; /* 必须开启，以便点击 */
+            z-index: 6000000;
+            user-select: none;
+        }
+        .btn-left { left: 0; }
+        .btn-right { right: 0; }
+        .nav-btn:hover { color: #fff; background: rgba(255,255,255,0.02); }
+
+        /* 图片视口 */
+        .slider-viewport {
+            width: 70vw;
+            height: 100%;
+            overflow: hidden;
+            border: 1px solid #222;
+        }
+        .slider-inner {
+            display: flex;
+            height: 100%;
+            transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+        }
+        .slide-item {
+            flex: 0 0 100%;
+            height: 100%;
+            background: #000;
+        }
+        .slide-item img {
+            width: 100%; height: 100%; object-fit: cover;
+            filter: grayscale(100%); transition: 0.8s;
+        }
+        .slide-item:hover img { filter: grayscale(0%); }
+
+        .close-btn {
+            position: fixed; top: 40px; right: 40px;
+            font-size: 10px; color: #444; letter-spacing: 5px;
+            pointer-events: auto; z-index: 7000000;
+        }
+        .close-btn:hover { color: #fff; }
+
+    </style>
+</head>
+<body>
+
+<div id="aim-system">
+    <div class="reticle-line-v" id="v-line"></div>
+    <div class="reticle-line-h" id="h-line"></div>
+    <div id="aim-dot"></div>
+</div>
+
+<div class="viewport">
+    <div class="acrylic-box" id="stage">
+        <div class="face front"></div>
+        <div class="face back"></div>
+        <div class="face left"></div>
+        <div class="face right"></div>
+        <div class="face top"></div>
+        <div class="face bottom"></div>
+    </div>
+</div>
+
+<div class="modal" id="modal">
+    <div class="close-btn" onclick="closeModal()">EXIT_ARCHIVE [X]</div>
+    <div id="modalContent"></div>
+</div>
+
+<script>
+    const data = [
+        { 
+            title: "艺能场", 
+            en: "Performance Hub", 
+            images: [
+                "https://images.unsplash.com/photo-1547153760-18fc86324498?q=80&w=1200",
+                "https://images.unsplash.com/photo-1596464716127-f2a82984de30?q=80&w=1200",
+                "https://images.unsplash.com/photo-1508700929628-666bc8bd845d?q=80&w=1200",
+                "https://images.unsplash.com/photo-1504609773096-104ff2c73ba4?q=80&w=1200",
+                "https://images.unsplash.com/photo-1512496011216-36c3ae2b4c19?q=80&w=1200"
+            ]
+        },
+        { 
+            title: "Mizuno 零售", 
+            en: "Retail Lab", 
+            images: [
+                "https://images.unsplash.com/photo-1441986300917-64674bd600d8?q=80&w=1200",
+                "https://images.unsplash.com/photo-1534452203293-4cc8d71ba712?q=80&w=1200",
+                "https://images.unsplash.com/photo-1555529771-835f59fc5efe?q=80&w=1200",
+                "https://images.unsplash.com/photo-1567401156248-4662079f7407?q=80&w=1200",
+                "https://images.unsplash.com/photo-1537832816519-689ad163238b?q=80&w=1200"
+            ]
+        }
+    ];
+
+    while(data.length < 10) { data.push({...data[0], title: `数据块 ${data.length + 1}`}); }
+
+    const stage = document.getElementById('stage');
+    const shards = [];
+    const aimDot = document.getElementById('aim-dot');
+    const vLine = document.getElementById('v-line');
+    const hLine = document.getElementById('h-line');
+
+    let currentSlideIndex = 0;
+
+    data.forEach((item, i) => {
+        const el = document.createElement('div');
+        el.className = 'glass-shard';
+        el.innerHTML = `<div style="font-size:0.6rem; color:#444;">REF_${i+1}</div><div style="font-size:1rem; letter-spacing:2px; color:#fff;">${item.title}</div>`;
+        
+        const obj = {
+            el: el,
+            x: Math.random() * 300 - 150, y: Math.random() * 300 - 150, z: Math.random() * 300 - 150,
+            vx: (Math.random() - 0.5) * 0.4, vy: (Math.random() - 0.5) * 0.4, vz: (Math.random() - 0.5) * 0.4,
+            rx: Math.random() * 360, ry: Math.random() * 360,
+            vrx: (Math.random() - 0.5) * 0.3, vry: (Math.random() - 0.5) * 0.3,
+            isHover: false
+        };
+
+        el.onmouseenter = () => obj.isHover = true;
+        el.onmouseleave = () => obj.isHover = false;
+        el.onclick = (e) => { e.stopPropagation(); openModal(item); };
+        stage.appendChild(el);
+        shards.push(obj);
+    });
+
+    function animate() {
+        shards.forEach(s => {
+            if (!s.isHover) {
+                s.x += s.vx; s.y += s.vy; s.z += s.vz;
+                s.rx += s.vrx; s.ry += s.vry;
+                if (s.x < -180 || s.x > 180) s.vx *= -1;
+                if (s.y < -180 || s.y > 180) s.vy *= -1;
+                if (s.z < -180 || s.z > 180) s.vz *= -1;
+            }
+            s.el.style.transform = `translate3d(${s.x+150}px, ${s.y+190}px, ${s.z}px) rotateX(${s.rx}deg) rotateY(${s.ry}deg)`;
+        });
+        requestAnimationFrame(animate);
+    }
+    animate();
+
+    document.addEventListener('mousemove', e => {
+        const x = e.clientX; const y = e.clientY;
+        aimDot.style.left = x + 'px'; aimDot.style.top = y + 'px';
+        vLine.style.left = x + 'px'; hLine.style.top = y + 'px';
+        const ry = (x / window.innerWidth - 0.5) * 35;
+        const rx = (y / window.innerHeight - 0.5) * -25;
+        stage.style.transform = `rotateX(${-20 + rx}deg) rotateY(${35 + ry}deg)`;
+    });
+
+    function openModal(item) {
+        currentSlideIndex = 0;
+        const slides = item.images.map(img => `<div class="slide-item"><img src="${img}" alt="project"></div>`).join('');
+        
+        document.getElementById('modalContent').innerHTML = `
+            <div class="modal-header">
+                <h1>${item.title}</h1>
+            </div>
+            <div class="slider-wrapper">
+                <div class="nav-btn btn-left" onclick="moveSlide(-1)">〈</div>
+                <div class="slider-viewport">
+                    <div class="slider-inner" id="slider-inner">
+                        ${slides}
+                    </div>
+                </div>
+                <div class="nav-btn btn-right" onclick="moveSlide(1)">〉</div>
+            </div>
+            <div style="text-align:center; margin-top:20px; font-size:10px; color:#333; letter-spacing:5px;">
+                CLICK ARROWS TO NAVIGATE DATA // 16:9 VISUALS
+            </div>
+        `;
+        document.getElementById('modal').classList.add('active');
+    }
+
+    function moveSlide(direction) {
+        const inner = document.getElementById('slider-inner');
+        const total = 5; // 5张图
+        currentSlideIndex = (currentSlideIndex + direction + total) % total;
+        inner.style.transform = `translateX(-${currentSlideIndex * 100}%)`;
+    }
+
+    function closeModal() { document.getElementById('modal').classList.remove('active'); }
+</script>
+</body>
+</html>
